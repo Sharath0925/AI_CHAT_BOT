@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Chat with Gemini</title>
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(to right, #74ebd5, #acb6e5);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .chat-container {
+            background: #ffffff;
+            border-radius: 20px;
+            padding: 30px;
+            width: 900px;
+            height: 600px;
+            box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        #response {
+            flex-grow: 1;
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f5f5f5;
+            border-radius: 10px;
+            color: #444;
+            overflow-y: auto;
+            max-height: 380px;
+        }
+
+        .response-line {
+            margin-bottom: 10px;
+        }
+
+        .input-area {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        #message {
+            flex-grow: 1;
+            padding: 12px;
+            border: 2px solid #6c63ff;
+            border-radius: 10px;
+            outline: none;
+            font-size: 16px;
+        }
+
+        button {
+            padding: 10px 16px;
+            border: none;
+            background-color: #6c63ff;
+            color: white;
+            font-size: 16px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background-color: #5548c8;
+        }
+
+        #mic {
+            font-size: 20px;
+            background-color: #ff4081;
+        }
+
+        #mic.listening {
+            background-color: green;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.15); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="chat-container">
+    <h1>Chat with Gemini-AI</h1>
+    <div id="response"></div>
+    <div class="input-area">
+        <input type="text" id="message" placeholder="Type your message..." />
+        <button onclick="sendMessage()">Send</button>
+        <button id="mic">🎙️</button>
+    </div>
+</div>
+
+<script>
+    function sendMessage() {
+        const messageInput = document.getElementById('message');
+        const message = messageInput.value.trim();
+        if (!message) return;
+
+        const responseDiv = document.getElementById('response');
+
+        // Add user message
+        const userMsg = document.createElement('div');
+        userMsg.className = 'response-line';
+        userMsg.innerHTML = `<strong>You:</strong> ${message}`;
+        responseDiv.appendChild(userMsg);
+        messageInput.value = "";
+
+        // Send API request
+        fetch('geminichat/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ message: message })
+        })
+        .then(response => response.json())
+        .then(data => {
+            const botMsg = document.createElement('div');
+            botMsg.className = 'response-line';
+            botMsg.innerHTML = `<strong>Gemini:</strong> ${data.response}`;
+            responseDiv.appendChild(botMsg);
+            responseDiv.scrollTop = responseDiv.scrollHeight;
+        })
+        .catch(error => {
+            const errorMsg = document.createElement('div');
+            errorMsg.className = 'response-line';
+            errorMsg.innerHTML = `<strong>Error:</strong> ${error}`;
+            responseDiv.appendChild(errorMsg);
+        });
+    }
+
+    // Voice Recognition
+    const micBtn = document.getElementById("mic");
+    const messageInput = document.getElementById("message");
+    let isListening = false;
+
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'en-US';
+        recognition.interimResults = false;
+
+        micBtn.addEventListener("click", () => {
+            if (isListening) {
+                recognition.stop();
+                return;
+            }
+
+            console.log("Starting voice recognition...");
+            isListening = true;
+            micBtn.innerHTML = "🎙️ Listening...";
+            micBtn.classList.add("listening");
+            recognition.start();
+        });
+
+        recognition.onresult = (event) => {
+            const speechToText = event.results[0][0].transcript;
+            console.log("Recognized speech:", speechToText);
+            messageInput.value = speechToText;
+            sendMessage(); // Auto-send
+            micBtn.innerHTML = "🎙️";
+            micBtn.classList.remove("listening");
+            isListening = false;
+        };
+
+        recognition.onend = () => {
+            if (isListening) {
+                micBtn.innerHTML = "🎙️";
+                micBtn.classList.remove("listening");
+                isListening = false;
+            }
+        };
+
+        recognition.onerror = (event) => {
+            console.error("Speech recognition error:", event.error);
+            alert("Speech recognition error: " + event.error);
+            micBtn.innerHTML = "🎙️";
+            micBtn.classList.remove("listening");
+            isListening = false;
+        };
+    } else {
+        micBtn.disabled = true;
+        micBtn.title = "Voice recognition not supported in this browser";
+    }
+</script>
+
+</body>
+</html>
